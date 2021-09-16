@@ -25,6 +25,8 @@ Not doing this as of yet.  This project was started erronously at first with ng 
 
 ## [Getting started with AngularFire and Universal](https://github.com/angular/angularfire/blob/master/docs/universal/getting-started.md)
 
+In Angular 9, this works:
+
 ```txt
 >ng generate universal --client-project firetrend
 CREATE src/main.server.ts (220 bytes)
@@ -37,7 +39,11 @@ UPDATE src/app/app.module.ts (438 bytes)
 npm install --save-dev @nguniversal/express-engine @nguniversal/module-map-ngfactory-loader express webpack-cli ts-loader ws xhr2
 ```
 
+In Angular 12, there is no -client-project flag.
+
 ### [Deploying your Universal application on Cloud Functions for Firebase](https://github.com/angular/angularfire/blob/master/docs/universal/cloud-functions.md)
+
+This is output from the first time around.
 
 ```txt
 firebase init
@@ -84,108 +90,111 @@ i  Writing project information to .firebaserc...
 +  Firebase initialization complete!
 ```
 
-Rewrites were not added to the firebase.json file, so added it manually:
-
-```json
-"hosting": {
-    // ...
-    "rewrites": [
-      { "source": "**", "function": "universal" }
-    ]
-  }
-```
+Running the build: npm run build causes these errors:
 
 ```txt
-npm run build
-...
-> firetrend@0.0.0 copy:hosting C:\Users\timof\repos\timofeysie\angular\firetrend
+WARNING in ./node_modules/ws/lib/validation.js 109:22-47
+Module not found: Error: Can't resolve 'utf-8-validate' in 'C:\Users\timof\repos\timofeysie\angular\firetrend\node_modules\ws\lib'  
+ @ ./node_modules/ws/lib/receiver.js 13:43-66
+ @ ./node_modules/ws/index.js 7:21-46
+ @ ./server.ts 11:19-32
+
+2 warnings have detailed information that is not shown.
+Use 'stats.errorDetails: true' resp. '--stats-error-details' to show it.
+
+ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\server.ts
+./server.ts 9:25-34
+[tsl] ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\server.ts(9,26)
+      TS7016: Could not find a declaration file for module 'express'. 'C:\Users\timof\repos\timofeysie\angular\firetrend\node_modules\express\index.js' implicitly has an 'any' type.
+  If the 'express' package actually exposes this module, consider sending a pull request to amend 'https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/express'
+
+ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\server.ts
+./server.ts 51:14-17
+[tsl] ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\server.ts(51,15)
+      TS7006: Parameter 'req' implicitly has an 'any' type.
+
+ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\server.ts
+./server.ts 51:19-22
+[tsl] ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\server.ts(51,20)
+      TS7006: Parameter 'res' implicitly has an 'any' type.
+
+3 errors have detailed information that is not shown.
+Use 'stats.errorDetails: true' resp. '--stats-error-details' to show it.
+
+webpack 5.50.0 compiled with 3 errors and 2 warnings in 6557 ms
+npm ERR! code ELIFECYCLE
+npm ERR! errno 1
+npm ERR! firetrend@0.0.0 webpack:ssr: `webpack --config webpack.server.config.js`
+npm ERR! Exit status 1
+npm ERR!
+npm ERR! Failed at the firetrend@0.0.0 webpack:ssr script.
+npm ERR! This is probably not a problem with npm. There is likely additional logging output above.
+```
+
+This didn't help:
+
+npm i --save-dev @types/express
+
+Ended up doing this in server.ts
+
+```js
+// @ts-expect-error:
+import * as express from 'express';
+```
+
+Also added type any to this:
+
+```js
+app.get('*', (req: any, res: any) => {
+```
+
+Had to keep fixing these errors manually:
+
+```txt
+> functions@ build C:\Users\timof\repos\timofeysie\angular\firetrend\functions
+> rm -r ./dist && cp -r ../dist . && tsc
+rm: cannot remove './dist': No such file or directory
+
 > cp -r ./dist/firetrend/* ./public && rm ./public/index.html
-'cp' is not recognized as an internal or external command,
+rm: cannot remove './public/index.html': No such file or directory
 ```
 
-This does not work either:
+Finally, the build completes, but the firebase serve fails in the browser with the message:
 
 ```txt
-> copy -r ./dist/firetrend/* ./public && rmdir ./public/index.html
+Error: Cannot find module './firetrend-server/main' at webpackEmptyContext (webpack://app/./dist/_sync_^\.\/.*\-server\/main$?:2:10) at eval (webpack://app/./server.ts?:37:127) at Module../server.ts (C:\Users\timof\repos\timofeysie\angular\firetrend\functions\dist\firetrend-webpack\server.js:2599:1) at __webpack_require__ (C:\Users\timof\repos\timofeysie\angular\firetrend\functions\dist\firetrend-webpack\server.js:3181:42) at C:\Users\timof\repos\timofeysie\angular\firetrend\functions\dist\firetrend-webpack\server.js:3245:37 at C:\Users\timof\repos\timofeysie\angular\firetrend\functions\dist\firetrend-webpack\server.js:3248:12 at webpackUniversalModuleDefinition (C:\Users\timof\repos\timofeysie\angular\firetrend\functions\dist\firetrend-webpack\server.js:11:20) at Object. (C:\Users\timof\repos\timofeysie\angular\firetrend\functions\dist\firetrend-webpack\server.js:18:3) at Module._compile (internal/modules/cjs/loader.js:1085:14) at Object.Module._extensions..js (internal/modules/cjs/loader.js:1114:10)
 ```
 
-Also tried this:
+Maybe that's coming from here?
 
-```json
-"copy:hosting": "copy -r \"./dist/firetrend/*\" \"./public\" && rmdir \"./public/index.html\"",
+functions\src\index.ts
+
+```js
+  require(`${process.cwd()}/dist/firetrend-webpack/server`).app(
 ```
 
-The command works in its original for using git bash in VSCode.  But then a different error:
+Change it to just firetrend and try again.
 
-```npm run build
-...
-Entrypoint server = server.js
-[./server.ts] 393 bytes {server} [built] [failed] [1 error]
-
-ERROR in ./server.ts
-Module build failed (from ./node_modules/ts-loader/index.js):
-TypeError: loaderContext.getOptions is not a function
-    at getLoaderOptions (C:\Users\timof\repos\timofeysie\angular\firetrend\node_modules\ts-loader\dist\index.js:91:41)
-    at Object.loader (C:\Users\timof\repos\timofeysie\angular\firetrend\node_modules\ts-loader\dist\index.js:14:21)npm ERR! code ELIFECYCLE
-```
-
-Looking at this solution after a commit: *I assume you're using ts-loader v9.x then if it is the case I suggest downgrading it to v8.x because this is an issue related to ts-loader and nothing to do with the worker when they migrated to v9*
+Similar issue:
 
 ```txt
-npm i ts-loader@8.3.0
-...
-npm run build
-...
-> ng run firetrend:server && npm run webpack:ssr
-> webpack --config webpack.server.config.js
-ts-loader: Using typescript@3.5.3. This version is incompatible with ts-loader. Please upgrade to the latest version of TypeScript.
-Hash: 80bd9ef8b1e5e0642ea8
-Version: webpack 4.39.2
-Time: 6893ms
-Built at: 17/09/2021 3:12:21 am
-    Asset     Size  Chunks             Chunk Names
-server.js  7.5 MiB  server  [emitted]  server
-Entrypoint server = server.js
-[./dist sync recursive ^\.\/.*\-server\/main$] ./dist sync ^\.\/.*\-server\/main$ 188 bytes {server} [built]       
-[./dist/firetrend-server/main.js] 64.8 KiB {server} [optional] [built]
-[./node_modules/@angular/core/fesm5/core.js] 1.18 MiB {server} [built] [2 warnings]
-[./node_modules/@nguniversal/common/fesm2015/engine.js] 734 KiB {server} [built]
-[./node_modules/@nguniversal/express-engine/fesm2015/express-engine.js] 2.56 KiB {server} [built]
-[./node_modules/@nguniversal/express-engine/fesm2015/tokens.js] 868 bytes {server} [built]
-[./node_modules/@nguniversal/module-map-ngfactory-loader/fesm5/module-map-ngfactory-loader.js] 3.53 KiB {server} [built]
-[./node_modules/express/index.js] 224 bytes {server} [built]
-[./node_modules/reflect-metadata/Reflect.js] 50 KiB {server} [built]
-[./node_modules/ws/index.js] 376 bytes {server} [built]
-[./node_modules/xhr2/lib/xhr2.js] 43.2 KiB {server} [built]
-[./node_modules/zone.js/dist/zone-node.js] 105 KiB {server} [built]
-[./server.ts] 1.64 KiB {server} [built]
-[fs] external "fs" 42 bytes {server} [built]
-[path] external "path" 42 bytes {server} [built]
-    + 429 hidden modules
-WARNING in ./node_modules/ws/lib/buffer-util.js
-Module not found: Error: Can't resolve 'bufferutil' in 'C:\Users\timof\repos\timofeysie\angular\firetrend\node_modules\ws\lib'
- @ ./node_modules/ws/lib/buffer-util.js
- @ ./node_modules/ws/lib/sender.js
- @ ./node_modules/ws/index.js
- @ ./server.ts
-WARNING in ./node_modules/ws/lib/validation.js
-Module not found: Error: Can't resolve 'utf-8-validate' in 'C:\Users\timof\repos\timofeysie\angular\firetrend\node_modules\ws\lib'
- @ ./node_modules/ws/lib/validation.js
- @ ./node_modules/ws/lib/sender.js
- @ ./node_modules/ws/index.js
- @ ./server.ts
-WARNING in ./node_modules/@angular/core/fesm5/core.js 27316:15-36
-System.import() is deprecated and will be removed soon. Use import() instead.
-For more info visit https://webpack.js.org/guides/code-splitting/
- @ ./server.ts 4:0-47 14:0-14
-WARNING in ./node_modules/@angular/core/fesm5/core.js 27328:15-102
-System.import() is deprecated and will be removed soon. Use import() instead.
-For more info visit https://webpack.js.org/guides/code-splitting/
- @ ./server.ts 4:0-47 14:0-14
-ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\functions\node_modules\google-gax\build\src\index.d.ts  
-[tsl] ERROR in C:\Users\timof\repos\timofeysie\angular\firetrend\functions\node_modules\google-gax\build\src\index.d.ts(49,10)
-      TS1005: 'from' expected.
+[hosting] Rewriting / to http://localhost:5001/firetrend/us-central1/universal for local Function universal
+i  functions: Beginning execution of "us-central1-universal"
+!  functions: Error: Cannot find module 'C:\Users\timof\repos\timofeysie\angular\firetrend\functions/dist/firetrend/server'
+Require stack:
+- C:\Users\timof\repos\timofeysie\angular\firetrend\functions\lib\index.js
 ```
+
+To see if it works on the server, I had to pay for a pay-as-you go account, as functions are behind a paywall.
+
+https://console.firebase.google.com/project/firetrend/usage/details
+
+Project Console: https://console.firebase.google.com/project/firetrend/overview
+Hosting URL: https://firetrend.web.app
+
+Browser says: Error: could not handle the request
+
+Console log says: Failed to load resource: the server responded with a status of 500 ()
 
 ## Original Readme
 
