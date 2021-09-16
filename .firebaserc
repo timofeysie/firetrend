@@ -1,0 +1,11 @@
+{
+  "targets": {
+    "firetrend": {
+      "hosting": {
+        "firetrend": [
+          "firetrend"
+        ]
+      }
+    }
+  }
+}
